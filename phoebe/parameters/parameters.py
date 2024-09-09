@@ -10545,7 +10545,7 @@ class FuncParameter(Parameter):
 
         if callable(value):
             try:
-                test = value(6000)
+                test = value(np.array([6000]))
             except Exception as e:
                 raise ValueError(f"Function returned error: {e}.")
             else:
