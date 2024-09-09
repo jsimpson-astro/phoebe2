@@ -6776,6 +6776,12 @@ class Bundle(ParameterSet):
 
         params, constraints = func(dataset=kwargs['dataset'], component_top=self.hierarchy.get_top(), **ds_kwargs)
 
+        # JS need to override, like pblum does
+        if kind in ['lc']:
+            override_this = [p for p in params.to_flat_dict().values() if p.qualifier == 'only_flux_from']
+            if len(override_this) > 0:
+                override_this[0]._choices = ['all'] + self.hierarchy.get_stars()
+
         if kwargs.get('overwrite', False):
             overwrite_ps = self.remove_dataset(dataset=kwargs['dataset'], during_overwrite=True)
             # check the label again, just in case kwargs['dataset'] belongs to

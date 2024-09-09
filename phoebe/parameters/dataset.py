@@ -240,6 +240,10 @@ def lc(syn=False, as_ps=True, is_lc=True, **kwargs):
 
         params += [FloatParameter(qualifier='exptime', value=kwargs.get('exptime', 0.0), default_unit=u.s, description='Exposure time (time is defined as mid-exposure)')]
 
+    if is_lc and not syn:
+        # adding params to specify components to calculate
+        params += [ChoiceParameter(qualifier='only_flux_from', value='all', choices=['all'] + kwargs.get('starrefs', ['']), advanced=True, description='Only calculate the flux from one component - ignore all others')]
+        #params += [BoolParameter(qualifier='include_flux', copy_for={'kind': ['star'], 'component': '*'}, component='_default', value=True, description='Whether this component contributes to light curve flux')]
 
     return ParameterSet(params) if as_ps else params, constraints
 
@@ -340,7 +344,14 @@ def rv(syn=False, as_ps=True, **kwargs):
 
         params += [ChoiceParameter(qualifier='solver_times', value=kwargs.get('solver_times', 'auto'), choices=['auto', 'compute_times', 'times'], description='times to use within run_solver.  auto: use compute_times if provided and shorter than times, otherwise use times.  compute_times: use compute_times if provided.  times: use times array.')]
 
-
+        # adding params to allow teff weight function to be passed
+        # seems to simplest way is to pass a dict parameter?
+        # since there doesn't seem to be an existing parameter class that could take a callable as input
+        # edit: tried to create a FuncParameter - let's give it a shot
+        # may need to copy per component
+        params += [BoolParameter(qualifier='teff_weighting_enabled', copy_for={'kind': ['star'], 'component': '*'}, component='_default', value=False, description='Enable the use of an additional function for weighting RVs based on the effective temperature of each surface element. Function must be specified by teff_weight_func if enabled')]
+        params += [FuncParameter(visible_if='[dataset][context][kind]teff_weighting_enabled:True', qualifier='teff_weight_func', copy_for={'kind': ['star'], 'component': '*'}, component='_default', value=None, description='EXPERIMENTAL: weighting function, signature must be f(teffs: np.ndarray) -> np.ndarray i.e. returns a weight for every teff provided from the mesh elements')]
+    
     lc_params, lc_constraints = lc(syn=syn, as_ps=False, is_lc=False, **kwargs)
     params += lc_params
     constraints += lc_constraints
