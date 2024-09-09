@@ -218,6 +218,11 @@ def _extract_from_bundle(b, compute, dataset=None, times=None,
             # then the Parameters in the model only exist at the system-level
             # and are not tagged by component
             dataset_components = [None]
+            # JS - added light curve parameter 'include_flux' to each component
+            # filter components by if they are enabled or not
+            only_component = b.filter(context='dataset', kind='lc', qualifier='only_flux_from').get_value()
+            dataset_components = [None] if only_component == 'all' else [only_component]
+            #dataset_components = [None] if all(dataset_components) else dataset_components
         elif dataset_kind in ['lp']:
             # TODO: eventually spectra and RVs as well (maybe even LCs and ORBs)
             dataset_components = b.hierarchy.get_stars() + b.hierarchy.get_orbits()
@@ -295,6 +300,14 @@ def _extract_from_bundle(b, compute, dataset=None, times=None,
                     info['mesh_columns'] = dataset_ps.get_value(qualifier='columns', expand=True, **_skip_filter_checks)
                     info['mesh_datasets'] = list(set([c.split('@')[1] for c in info['mesh_columns'] if len(c.split('@'))>1]))
                     info['mesh_kinds'] = [b.filter(dataset=ds, context='dataset', **_skip_filter_checks).kind for ds in info['mesh_datasets']]
+
+                elif dataset_kind == 'rv':
+                    ps = b.filter(context='dataset', qualifier='teff_weighting_enabled').values()
+                    info['teff_weight_func_dict'] = {p.component: b.filter(context='dataset', 
+                                                                           component=p.component, 
+                                                                           qualifier='teff_weight_func').get_value()
+                                                     if p.get_value() else None
+                                                     for p in ps}
 
                 if by_time:
                     for time_ in this_times:
@@ -1211,7 +1224,8 @@ class PhoebeBackend(BaseBackendByTime):
                 if info['needs_mesh']:
                     obs = system.observe(info['dataset'],
                                          kind=kind,
-                                         components=info['component'])
+                                         components=info['component'],
+                                         teff_weight_func=info['teff_weight_func_dict'][info['component']])
 
                     rv = obs['rv'] + b.get_value(qualifier='rv_offset',
                                                  component=info['component'],

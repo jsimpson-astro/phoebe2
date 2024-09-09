@@ -584,12 +584,23 @@ class System(object):
             # NOTE: don't need ptfarea because its a float (same for all
             # elements, regardless of component)
 
+            # JS - if doing weighting, should do this
+            teff_weight_func = kwargs.get('teff_weight_func', None)
+            if teff_weight_func is not None:
+                teffs = meshes.get_column_flat('teffs', components)
+                teff_weights = teff_weight_func(teffs)
+                rvs_weighted = np.average(rvs, weights=teff_weights*abs_intensities*areas*mus*visibilities)
+            else:
+                rvs_weighted = np.average(rvs, weights=abs_intensities*areas*mus*visibilities)
+
             # NOTE: the intensities are already projected but are per unit area
             # so we need to multiply by the /projected/ area of each triangle (thus the extra mu)
-            return {'rv': np.average(rvs, weights=abs_intensities*areas*mus*visibilities)}
+            # return {'rv': np.average(rvs, weights=abs_intensities*areas*mus*visibilities)}
+            return {'rv': rvs_weighted}
 
         elif kind=='lc':
-            visibilities = meshes.get_column_flat('visibilities')
+            # JS - modified to consider components
+            visibilities = meshes.get_column_flat('visibilities', components) 
 
             if np.all(visibilities==0):
                 # then no triangles are visible, so we should return nan -
