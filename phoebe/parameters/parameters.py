@@ -10486,6 +10486,77 @@ class ArrayParameter(Parameter):
             self._value = np.asarray(value)
 
 
+class FuncParameter(Parameter):
+    def __init__(self, *args, **kwargs):
+        """
+        see <phoebe.parameters.Parameter.__init__>
+        """
+        super(FuncParameter, self).__init__(*args, **kwargs)
+
+        self.set_value(kwargs.get('value', None), ignore_readonly=True)
+
+        self._dict_fields_other = ['description', 'value', 'visible_if', 'copy_for', 'readonly', 'advanced', 'latexfmt']
+        self._dict_fields = _meta_fields_all + self._dict_fields_other
+
+    def get_value(self, **kwargs):
+        """
+        Get the current value of the <phoebe.parameters.DictParameter>.
+
+        **default/override values**: if passing a keyword argument with the same
+            name as the Parameter qualifier (see
+            <phoebe.parameters.Parameter.qualifier>), then the value passed
+            to that keyword argument will be returned **instead of** the current
+            value of the Parameter.  This is mostly used internally when
+            wishing to override values sent to
+            <phoebe.frontend.bundle.Bundle.run_compute>, for example.
+
+        Arguments
+        ----------
+        * `**kwargs`: passing a keyword argument that matches the qualifier
+            of the Parameter, will return that value instead of the stored value.
+            See above for how default values are treated.
+
+        Returns
+        --------
+        * (dict) the current or overridden value of the Parameter
+        """
+        default = super(FuncParameter, self).get_value(**kwargs)
+        if default is not None: return default
+        return self._value
+
+    @send_if_client
+    def set_value(self, value, **kwargs):
+        """
+        Set the current value of the <phoebe.parameters.DictParameter>.
+
+        Arguments
+        ----------
+        * `value` (dict): the new value of the Parameter.
+        * `**kwargs`: IGNORED
+
+        Raises
+        ---------
+        * ValueError: if `value` could not be converted to the correct type
+            or is not a valid value for the Parameter.
+        """
+        self._readonly_check(**kwargs)
+
+        _orig_value = _deepcopy(self.get_value())
+
+        if callable(value):
+            try:
+                test = value(6000)
+            except Exception as e:
+                raise ValueError(f"Function returned error: {e}.")
+            else:
+                self._value = value
+        else:
+            #raise TypeError(f"Function {value} is not callable.")
+            if value is None:
+                self._value = value
+            else:
+                raise TypeError(f"Function {value} is not callable.")
+
 class HierarchyParameter(StringParameter):
     def __init__(self, value, **kwargs):
         """
@@ -10512,7 +10583,7 @@ class HierarchyParameter(StringParameter):
         #~ for item in self._parse_repr():
             #~ tab = 0
             #~ str_ += _print_item(str(item), tab, '')
-#~
+        #~
         #~ return str_
         if not len(self.get_value()):
             return 'NO HIERARCHY'
