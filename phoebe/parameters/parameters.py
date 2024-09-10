@@ -3721,6 +3721,7 @@ class ParameterSet(object):
 
         if dataset_kind == 'lc':
             qualifier = 'fluxes'
+            #component = None
         elif dataset_kind == 'rv':
             qualifier = 'rvs'
         else:
@@ -3811,6 +3812,9 @@ class ParameterSet(object):
         if cf not in ['lnf', 'chi2']:
             raise ValueError("cf must be either 'lnf' or 'chi2'")
 
+        # if dataset.kind == 'lc':
+        #     component = None
+
         ret = 0.
 
         if model is not None and not isinstance(model, str):
@@ -3826,8 +3830,10 @@ class ParameterSet(object):
 
 
         for ds in model_ps.datasets:
-            ds_comps = model_ps.filter(dataset=ds, **_skip_filter_checks).components
-            if not len(ds_comps):
+            ds_ps_ = model_ps.filter(dataset=ds, **_skip_filter_checks)
+            ds_comps = ds_ps_.components
+            #ds_comps = model_ps.filter(dataset=ds, **_skip_filter_checks).components
+            if not len(ds_comps) or ds_ps_.kind == 'lc':
                 ds_comps = [None]
 
             for ds_comp in ds_comps:
