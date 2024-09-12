@@ -220,7 +220,7 @@ def _extract_from_bundle(b, compute, dataset=None, times=None,
             dataset_components = [None]
             # JS - added light curve parameter 'include_flux' to each component
             # filter components by if they are enabled or not
-            only_component = b.filter(context='dataset', kind='lc', qualifier='only_flux_from').get_value()
+            only_component = b.filter(context='dataset', kind='lc', dataset=dataset, qualifier='only_flux_from').get_value()
             dataset_components = [None] if only_component == 'all' else [only_component]
             #dataset_components = [None] if all(dataset_components) else dataset_components
         elif dataset_kind in ['lp']:
