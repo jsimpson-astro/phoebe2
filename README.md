@@ -1,11 +1,193 @@
+PHOEBE 2.4.14.1
+------------------------
+
+This is a fork of PHOEBE 2.4.14 to add some features for modelling irradiated millisecond pulsar binaries a.k.a. 'spiders'.
+
+### Background
+These systems consist of a neutron star pulsar primary and a low-mass main sequence or brown dwarf companion, which is irradiated by the pulsar's wind.
+
+This irradiation is often defined by a heating luminosity $L_\mathrm{H}$ and an irradiation temperature $T_\mathrm{irr}$: $L_\mathrm{H} = 4 \pi a^2 \sigma T_\mathrm{irr}^4$,
+where $a$ is the binary semi-major axis and $\sigma$ is the Stefan-Boltzmann constant.
+
+If we want to simulate this in PHOEBE, we can set the primary's temperature to a value scaled to its radius to produce the same flux at a distance $a$: $L_\mathrm{H} = 4 \pi R_1^2 \sigma T_\mathrm{eff,\ 1}^4$,
+where $R_1$ is the primary's radius and $T_\mathrm{eff, \ 1}$ is its effective temperature.
+
+Equating the two, we get $T_\mathrm{eff, \ 1} = T_\mathrm{irr} (a/R_1)^{1/2}$, which for a typical system gives $T_\mathrm{eff, \ 1} \sim 10^6 \ \mathrm{K}$.
+
+At such high temperatures, the light curve in PHOEBE will be entirely dominated by the light from the primary, which is unrealistic in a spider system.
+Unfortunately, in the current version of PHOEBE, there is no way to separate the fluxes of components.
+
+In order to solve this problem, this fork introduces the `only_flux_from` parameter, which appears on every `lc` dataset. 
+This allows light curves to be computed for only a single component, allowing for realistic light curves to be computed in PHOEBE.
+
+The extreme irradiation can significantly alter the radial velocities measured from the companion star too.
+For example, usually metallic absorption lines will give high radial velocities, as they are strongest at cooler temperatures and originate closer to the colder 'night' side of the companion, while
+Balmer absorption lines will give lower radial velocities, as they increase in strength at higher temperatures and thus originate closer to the hotter 'day' side.
+For further details on this phenomenon in spiders, see [Linares et al. 2018](https://ui.adsabs.harvard.edu/abs/2018ApJ...859...54L) and [Simpson et al. 2024](https://ui.adsabs.harvard.edu/abs/2024arXiv240811099S/).
+
+To simulate this effect in PHOEBE, this fork also introduces the `teff_weighting_enabled` and `teff_weight_func` parameters, which appear on every `rc` dataset, per component.
+Setting `teff_weighting_enabled` to `True` allows an arbitrary `teff_weight_func` to be set, which allows any function to be passed which returns weights as a function of effective temperature for every mesh element.
+
+### Examples
+
+To get started, initialise the default bundle and add an `lc` and `rv` dataset:
+
+```py
+import phoebe
+import astropy.units as u
+
+b = phoebe.default_binary()
+
+# add light curve and radial velocity datasets
+b.add_dataset('lc')
+b.add_dataset('rv')
+
+# set some times
+b.set_value(kind='lc', context='dataset', qualifier='compute_times', value=np.linspace(0, 1, 51))
+b.set_value(kind='rv', context='dataset', qualifier='compute_times', value=np.linspace(0, 1, 51))
+
+```
+
+We can add a constraint on the primary effective temperature, and define the irradiation temperature $T_\mathrm{irr}$:
+
+```py
+# define new parameter
+tirr_def = phoebe.parameters.FloatParameter(qualifier='tirr', 
+                                            default_unit=u.K, 
+                                            value=0, 
+                                            description='Irradiation temperature for the secondary star.')
+
+# add to bundle
+tirr_param, created = b.get_or_create('tirr', tirr_def, context='component', component='secondary')
+
+# get parameters for equation - semi-major axis, Teff of primary, radius of primary
+sma_param = b.get_parameter(qualifier='sma', context='component', component='binary')
+teff1_param = b.get_parameter(qualifier='teff', context='component', component='primary')
+R1_param = b.get_parameter(qualifier='requiv', context='component', component='primary')
+
+# add consraint
+b.add_constraint(teff1_param, tirr_param * (sma_param / R1_param)**0.5)
+
+```
+
+To represent the extremely hot primary, we must first disable limb-darkening and atmosphere tables for the primary.
+
+We can also disable distortion and eclipses:
+
+```py
+# disable bolometric limb-darkening
+b.set_value(component='primary', qualifier='ld_mode_bol', value='manual')
+b.set_value(component='primary', qualifier='ld_func_bol', value='linear')
+b.set_value(component='primary', qualifier='ld_coeffs_bol', value=0.)
+
+# disable dataset limb-darkening
+b.set_value_all(component='primary', context='dataset', qualifier='ld_mode', value='manual')
+b.set_value_all(component='primary', context='dataset', qualifier='ld_func', value='linear')
+b.set_value_all(component='primary', context='dataset', qualifier='ld_coeffs', value=0.)
+
+# blackbody atmosphere, no eclipses, no distortion, disable pblum
+b.set_value(component='primary', qualifier='atm', value='blackbody')
+b.set_value(qualifier='eclipse_method', value='only_horizon')
+b.set_value(qualifier='distortion_method', component='primary', value='sphere')
+b.set_value_all(qualifier='pblum_mode', value='absolute')
+```
+
+We have also set pblum_mode to absolute - this is not necessary, but will give fluxes in absolute units
+
+Now we can set some typical parameters for the spider binary:
+
+```py
+b.set_value(context='component', kind='orbit', qualifier='incl', value=80)
+b.set_value(qualifier='q', value=0.2)
+b.set_value(component='primary', qualifier='requiv', value=10, unit='km')
+b.set_value(qualifier='distance', value=1, unit='kpc')
+```
+
+Finally, let's compute and compare the light curves with and without the `only_flux_from` set to `'secondary'` for a lightly-irradiated companion:
+
+```py
+# set a small amount of irradiation - larger values will make the second light curve impossible to see
+b.set_value(qualifier='tirr', value=3500)
+
+# run two models, before and after separating flux
+b.run_compute(model='both', dataset='lc01')
+b.set_value(dataset='lc01', qualifier='only_flux_from', value='secondary')
+b.run_compute(model='companion_only', dataset='lc01')
+
+_ = b.plot(show=True, kind='lc', legend=True, legend_kwargs={'labels': ['Both', 'Companion only']})
+```
+<p align="center"><img src="./images/lc.png" alt="Light curve comparison" width="600px" align="center"/></a></p>
+
+As can be seen in the figure, the light curves are identical except for the constant flux offset caused by the primary.
+Setting `only_flux_from` to `'secondary'` has removed this flux to give a more physical light curve.
+
+Now, let's use the `teff_weight_func` to weight the radial velocities with two functions.
+
+First defining two functions for the night-side and day-side radial velocities weights:
+
+```py
+# define two sigmoid functions for night and day side
+# e.g. to represent metallic line RVs and Balmer line RVs
+def night_teff_func(teffs):
+    return (1 + np.exp(0.0006*(teffs-6000)))**-1
+
+def day_teff_func(teffs):
+    return (1 + np.exp(-0.0004*(teffs-6000)))**-1
+
+```
+Which have the following form over a temperature range of 0 - 20000 K:
+<p align="center"><img src="./images/teff_weights.png" alt="Temperature weights used for radial velocities" width="500px" align="center"/></a></p>
+
+Now computing three models - one with no weighting (other than the default intensity-weighting from PHOEBE), one with `night_teff_func`, and one with `day_teff_func`,
+for a heavily-irradiated system:
+
+```py
+# raise irradiation and lower base temperature to increase prevalence of RV offset effects
+b.set_value(qualifier='teff', component='secondary', value=5000)
+b.set_value(qualifier='tirr', value=8000)
+
+# run model without temperature weighting
+b.run_compute(model='base')
+
+# enable temperature weighting, which exposes teff_weight_func
+b.set_value(qualifier='teff_weighting_enabled', component='secondary', value=True)
+
+# set function, run
+b.set_value(qualifier='teff_weight_func', component='secondary', value=night_teff_func)
+b.run_compute(model='night')
+
+# change function, run
+b.set_value(qualifier='teff_weight_func', component='secondary', value=day_teff_func)
+b.run_compute(model='day')
+
+_ = b.plot(show=True, kind='rv', component='secondary', legend=True, legend_kwargs={'labels': ['Intensity weighting only', 'Night-side weighting', 'Day-side weighting']})
+```
+<p align="center"><img src="./images/rv.png" alt="Radial velocity curve comparison" width="600px" align="center"/></a></p>
+
+Now, a slight separation is seen between the three radial velocity curves, as we expect. The night-side weighted radial velocities are higher, as they are biased towards elements on the outer face of the companion,
+while the day-side radial velocities are lower, as they are biased towards elements on the irradiated inner face.
+
+This differs from the standard PHOEBE radial velocity curve in black, which is weighted by the intensities of the elements only.
+
+Note that the temperature weighting is applied **in addition to** the intensity-weighting already provided in PHOEBE.
+
+These radial velocities can be further altered by applying different weighting functions. 
+
+The expected usage of this feature is as follows:
+-  Measure radial velocities from observations using a particular set of absorption features and correlating against a library of spectral templates.
+-  Measure the equivalent widths (i.e. line strengths) of the template library for the same wavelength ranges used.
+-  Derive a functional form of the equivalent widths vs. temperature relationship for the template library - e.g. a polynomial fit or interpolation.
+-  Add an rv dataset to PHOEBE with the observed data, and provide this function to PHOEBE as the `teff_weight_func`.
+-  Repeat for any other sets of absorption features for a particular system.
+-  Add any light curves you wish to fit simultaneously, and set `only_flux_from` to `'secondary'`.
+-  Finally, run a PHOEBE solver backend on the data to fit your system.
+
+Remainder of 2.4 readme is below:
+
 PHOEBE 2.4
 ------------------------
 
 <p align="center"><a href="http://phoebe-project.org"><img src="./images/logo_blue.svg" alt="PHOEBE logo" width="160px" align="center"/></a></p>
-
-<pre align="center" style="text-align:center; font-family:monospace; margin: 30px">
-  pip install phoebe
-</pre>
 
 <p align="center">
   <a href="https://pypi.org/project/phoebe/"><img src="https://img.shields.io/badge/pip-phoebe-blue.svg"/></a>
@@ -45,25 +227,16 @@ The development of PHOEBE 2 is funded in part by [NSF grant #1517474](https://ww
 DOWNLOAD AND INSTALLATION
 -------------------------
 
-The easiest way to download and install PHOEBE 2 is by using pip (make sure you're using the correct command for pip that points to your python3 installation - if in doubt use something like `python3 -m pip install phoebe`):
+To install this fork of PHOEBE 2, you must install it from source as so:
 
-    pip install phoebe
+First, download the PHOEBE 2 source code, use git:
 
-To install it site-wide, prefix the `pip` command with `sudo` or run it as root.
+    git clone https://github.com/jsimpson-astro/phoebe2.git
 
-To download the PHOEBE 2 source code, use git:
-
-    git clone https://github.com/phoebe-project/phoebe2.git
-
-To install PHOEBE 2 from the source locally, go to the `phoebe2/` directory and issue:
+Then, to install PHOEBE 2 from the source locally, go to the `phoebe2/` directory and issue:
 
     python3 setup.py build
     python3 setup.py install --user
-
-To install PHOEBE 2 from the source site-wide, go to the `phoebe2/` directory and issue:
-
-    python3 setup.py build
-    sudo python3 setup.py install
 
 Note that as of the 2.3 release, PHOEBE requires Python 3.6 or later.  For further details on pre-requisites consult the [PHOEBE project webpage](http://phoebe-project.org/install/2.4).
 
