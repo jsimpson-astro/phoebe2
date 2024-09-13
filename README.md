@@ -182,6 +182,20 @@ The expected usage of this feature is as follows:
 -  Add any light curves you wish to fit simultaneously, and set `only_flux_from` to `'secondary'`.
 -  Finally, run a PHOEBE solver backend on the data to fit your system.
 
+### Limitations
+
+This fork is experimental, and has not been tested with every aspect of PHOEBE.
+It adjusts the default backend, so it is unlikely to work with backends other than the standard PHOEBE backend.
+It will either fail or have no differences vs. the usual behaviour of PHOEBE 2.4.14.
+
+It has been tested and confirmed to work with the new features for:
+- Simple forward models with `run_compute`
+- Estimating radial velocity geometry with `estimator.rv_geometry`
+- The Nelder-Mead optimizer with `optimizer.nelder_mead`
+- The `emcee` sampler with `sampler.emcee`
+
+It has not been tested (yet) with the lc_geometry estimator or any other estimators, optimizers, or solvers.
+
 Remainder of 2.4 readme is below:
 
 PHOEBE 2.4
