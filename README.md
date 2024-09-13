@@ -26,7 +26,9 @@ Balmer absorption lines will give lower radial velocities, as they increase in s
 For further details on this phenomenon in spiders, see [Linares et al. 2018](https://ui.adsabs.harvard.edu/abs/2018ApJ...859...54L) and [Simpson et al. 2024](https://ui.adsabs.harvard.edu/abs/2024arXiv240811099S/).
 
 To simulate this effect in PHOEBE, this fork also introduces the `teff_weighting_enabled` and `teff_weight_func` parameters, which appear on every `rc` dataset, per component.
-Setting `teff_weighting_enabled` to `True` allows an arbitrary `teff_weight_func` to be set, which allows any function to be passed which returns weights as a function of effective temperature for every mesh element.
+Setting `teff_weighting_enabled` to `True` allows an arbitrary `teff_weight_func` to be set, which allows any function to be passed which returns weights as a function of effective temperature for every mesh element. 
+This will be applied in addition to the default weighting (with intensity) when calculating radial velocities.
+Thus, with an appropriately chosen function, it is possible to reproduce radial velocities originating from different absorption line features distributed over the face of the companion.
 
 ### Examples
 
