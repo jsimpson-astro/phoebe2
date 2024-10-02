@@ -1003,8 +1003,26 @@ class PhoebeBackend(BaseBackendByTime):
             datasets = enabled_ps.datasets
         # kinds = [b.get_dataset(dataset=ds).kind for ds in datasets]
 
+        # JS - ignore stars if only_flux_from is set for dataset
+        # first check only light curve datasets
+        only_flux_froms = {}
+        lc_datasets = []
+        for dataset in datasets:
+            ps_ = b.filter(context='dataset', kind='lc', dataset=dataset, qualifier='only_flux_from')
+            if len(ps_) == 1:
+                only_flux_froms[dataset] = ps_.get_value()
+                lc_datasets.append(dataset)
+        
+        # if all light curves have only_flux_from set, skip all other datasets
+        set_only_flux_froms = set(only_flux_froms.values())
+        if len(set_only_flux_froms) == 1:
+            only_val = list(set_only_flux_froms)[0]
+            only_flux_froms = {k: only_val for k in datasets}
+
+        only_flux_froms = None if all(only_flux_from == 'all' for only_flux_from in only_flux_froms.values()) else only_flux_froms
+
         system.update_positions(t0, x0, y0, z0, vx0, vy0, vz0, etheta0, elongan0, eincl0, ignore_effects=True)
-        system.populate_observables(t0, ['lc' for dataset in datasets], datasets, ignore_effects=True)
+        system.populate_observables(t0, ['lc' for dataset in datasets], datasets, ignore_effects=True, only_flux_froms=only_flux_froms)
 
 
         if reset:
