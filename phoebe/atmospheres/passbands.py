@@ -1952,7 +1952,8 @@ class Passband:
 
             nanmask = np.isnan(extinct_factor)
             if np.any(nanmask):
-                raise ValueError('Atmosphere parameters out of bounds: atm=%s, extinct=%f, Rv=%f, Teff=%s, logg=%s, abun=%s' % (atm, extinct, Rv, Teff[nanmask], logg[nanmask], abun[nanmask]))
+                raise ValueError(f"Atmosphere parameters out of bounds: atm={atm}, extinct={extinct}, Rv={Rv}, Teff={Teff[nanmask]}, logg={logg[nanmask]}, abun={abun[nanmask]}")
+                #raise ValueError('Atmosphere parameters out of bounds: atm=%s, extinct=%f, Rv=%f, Teff=%s, logg=%s, abun=%s' % (atm, extinct, Rv, Teff[nanmask], logg[nanmask], abun[nanmask]))
 
             return extinct_factor
 
