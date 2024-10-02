@@ -1911,18 +1911,22 @@ class Star(Body):
             if extinct == 0.0:
                 extinct_factors = 1.0
             else:
-                extinct_factors = pb.interpolate_extinct(Teff=self.mesh.teffs.for_computations,
-                                                         logg=self.mesh.loggs.for_computations,
-                                                         abun=self.mesh.abuns.for_computations,
-                                                         extinct=extinct,
-                                                         Rv=Rv,
-                                                         atm=atm,
-                                                         photon_weighted=intens_weighting=='photon')
+                try:
+                    extinct_factors = pb.interpolate_extinct(Teff=self.mesh.teffs.for_computations,
+                                                             logg=self.mesh.loggs.for_computations,
+                                                             abun=self.mesh.abuns.for_computations,
+                                                             extinct=extinct,
+                                                             Rv=Rv,
+                                                             atm=atm,
+                                                             photon_weighted=intens_weighting=='photon')
 
-                # extinction is NOT aspect dependent, so we'll correct both
-                # normal and directional intensities
-                abs_intensities *= extinct_factors
-                abs_normal_intensities *= extinct_factors
+                    # extinction is NOT aspect dependent, so we'll correct both
+                    # normal and directional intensities
+                    abs_intensities *= extinct_factors
+                    abs_normal_intensities *= extinct_factors
+                except ValueError as e:
+                    logger.warning(f"Atmosphere parameters out of bounds for {self.component} when computing extinction. Ignoring extinction for this component.")
+                    extinct_factors = 1.0
 
             # Handle pblum - distance and l3 scaling happens when integrating (in observe)
             # we need to scale each triangle so that the summed normal_intensities over the
