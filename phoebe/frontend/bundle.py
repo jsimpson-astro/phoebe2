@@ -10748,27 +10748,7 @@ class Bundle(ParameterSet):
             # TODO: make sure this accepts all compute parameter overrides (distortion_method, etc)
             system = kwargs.get('system', self._compute_intrinsic_system_at_t0(compute=compute, datasets=pblum_datasets, atms=atms, **kwargs))
             logger.debug("computing observables with ignore_effects=True for {}".format(pblum_datasets))
-
-            # JS - ignore stars if only_flux_from is set for dataset
-            # first check only light curve datasets
-            only_flux_froms = {}
-            lc_datasets = []
-            for dataset in pblum_datasets:
-                ps_ = self.filter(context='dataset', kind='lc', dataset=dataset, qualifier='only_flux_from')
-                if len(ps_) == 1:
-                    only_flux_froms[dataset] = ps_.get_value()
-                    lc_datasets.append(dataset)
-            
-            # if all light curves have only_flux_from set, skip all other datasets
-            set_only_flux_froms = set(only_flux_froms.values())
-            if len(set_only_flux_froms) == 1:
-                only_val = list(set_only_flux_froms)[0]
-                only_flux_froms = {k: only_val for k in pblum_datasets}
-                valid_components = [only_val]
-
-            only_flux_froms = None if all(only_flux_from == 'all' for only_flux_from in only_flux_froms.values()) else only_flux_froms
-
-            system.populate_observables(t0, ['lc'], pblum_datasets, ignore_effects=True, only_flux_froms=only_flux_froms)
+            system.populate_observables(t0, ['lc'], pblum_datasets, ignore_effects=True)
         elif pblum_method == 'stefan-boltzmann':
             requivs = {component: self.get_value(qualifier='requiv', component=component, context='component', unit='m', **_skip_filter_checks) for component in valid_components}
             teffs = {component: self.get_value(qualifier='teff', component=component, context='component', unit='K', **_skip_filter_checks) for component in valid_components}
@@ -10806,8 +10786,6 @@ class Bundle(ParameterSet):
                 for component, star in system_items.items():
                     if component not in valid_components:
                         continue
-
-                    print(component)
 
                     pblums_abs[dataset][component] = float(star.compute_luminosity(dataset, scaled=False))
 

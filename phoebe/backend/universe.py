@@ -301,7 +301,7 @@ class System(object):
                                  ds=ds, Fs=Fs, ignore_effects=ignore_effects)
 
 
-    def populate_observables(self, time, kinds, datasets, ignore_effects=False, only_flux_froms=None):
+    def populate_observables(self, time, kinds, datasets, ignore_effects=False):
         """
         TODO: add documentation
 
@@ -315,13 +315,8 @@ class System(object):
             self.handle_reflection()
 
         for kind, dataset in zip(kinds, datasets):
-            if only_flux_froms is not None and only_flux_froms[dataset] != 'all':
-                starref = only_flux_froms[dataset]
-                body = self._bodies[starref]
+            for starref, body in self.items():
                 body.populate_observable(time, kind, dataset, ignore_effects=ignore_effects)
-            else:
-                for starref, body in self.items():
-                    body.populate_observable(time, kind, dataset, ignore_effects=ignore_effects)
 
     def handle_reflection(self,  **kwargs):
         """
