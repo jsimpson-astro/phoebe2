@@ -304,7 +304,7 @@ def _extract_from_bundle(b, compute, dataset=None, times=None,
                 elif dataset_kind == 'rv':
                     #ps = b.filter(context='dataset', qualifier='teff_weighting_enabled').values()
                     ps = dataset_ps.filter(qualifier='teff_weighting_enabled').to_list()
-                    teff_weight_funcs = {p.component: p.get_value 
+                    teff_weight_funcs = {p.component: p.get_value() 
                                          for p in dataset_ps.filter(qualifier='teff_weight_func').to_list()}
 
                     info['teff_weight_func_dict'] = {p.component: teff_weight_funcs[p.component] 
