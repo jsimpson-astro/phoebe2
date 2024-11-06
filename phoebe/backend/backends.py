@@ -302,13 +302,14 @@ def _extract_from_bundle(b, compute, dataset=None, times=None,
                     info['mesh_kinds'] = [b.filter(dataset=ds, context='dataset', **_skip_filter_checks).kind for ds in info['mesh_datasets']]
 
                 elif dataset_kind == 'rv':
-                    ps = b.filter(context='dataset', qualifier='teff_weighting_enabled').values()
-                    info['teff_weight_func_dict'] = {p.component: b.filter(context='dataset', 
-                                                                           component=p.component, 
-                                                                           qualifier='teff_weight_func').get_value()
-                                                     if p.get_value() else None
-                                                     for p in ps}
+                    #ps = b.filter(context='dataset', qualifier='teff_weighting_enabled').values()
+                    ps = dataset_ps.filter(qualifier='teff_weighting_enabled').to_list()
+                    teff_weight_funcs = {p.component: p.get_value 
+                                         for p in dataset_ps.filter(qualifier='teff_weight_func').to_list()}
 
+                    info['teff_weight_func_dict'] = {p.component: teff_weight_funcs[p.component] 
+                                                                  if p.get_value() else None 
+                                                     for p in ps}
                 if by_time:
                     for time_ in this_times:
                         # TODO: handle some deltatime allowance here?
